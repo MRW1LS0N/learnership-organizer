@@ -1,6 +1,10 @@
+from importlib.resources import files
+
 import customtkinter as ctk
 from tkinter import filedialog
 from tkinter import ttk
+
+from app.discovery import discover_files
 
 print("GUI LOADED")
 
@@ -88,8 +92,31 @@ class LearnershipOrganizer(ctk.CTk):
 
         folder = filedialog.askdirectory()
 
-        if folder:
+        if not folder:
+            return
 
-            self.evidence_folder = folder
+        self.evidence_folder = folder
+        self.folder_label.configure(text=folder)
 
-            self.folder_label.configure(text=folder)
+        # Clear previous results
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        files = discover_files(folder)
+
+        for file in files:
+
+            self.tree.insert(
+                "",
+                "end",
+                values=(
+                    file.name,
+                    "Waiting",
+                    "Ready"
+                )
+            )
+
+        if files:
+            self.organize_button.configure(state="normal")
+        else:
+            self.organize_button.configure(state="disabled")

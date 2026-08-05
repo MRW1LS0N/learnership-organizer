@@ -116,25 +116,26 @@ class LearnershipOrganizer(ctk.CTk):
 
                 status = "Invalid"
 
-        else:
+            else:
 
-            destination = (
-            f"{document.assessment_type}/"
-            f"{document.assessment_type}{document.assessment_number:02d}/"
-            f"{document.submission_type}"
+                destination = (
+                f"{document.assessment_type}/"
+                f"{document.assessment_type}{document.assessment_number:02d}/"
+                f"{document.submission_type}"
+                )
+
+                status = "Ready"
+
+            self.tree.insert(
+                "",
+                "end",
+                values=(
+                    file.name,
+                    destination,
+                    status
+                )
             )
-
-        status = "Ready"
-
-        self.tree.insert(
-            "",
-            "end",
-            values=(
-                file.name,
-                destination,
-                status
-            )
-        )
+        
 
         if files:
             self.organize_button.configure(state="normal")

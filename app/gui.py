@@ -1,5 +1,7 @@
 from importlib.resources import files
 
+from app.parser import parse_filename
+
 import customtkinter as ctk
 from tkinter import filedialog
 from tkinter import ttk
@@ -106,15 +108,33 @@ class LearnershipOrganizer(ctk.CTk):
 
         for file in files:
 
-            self.tree.insert(
-                "",
-                "end",
-                values=(
-                    file.name,
-                    "Waiting",
-                    "Ready"
-                )
+            document = parse_filename(file)
+
+            if document is None:
+
+                destination = "Unknown"
+
+                status = "Invalid"
+
+        else:
+
+            destination = (
+            f"{document.assessment_type}/"
+            f"{document.assessment_type}{document.assessment_number:02d}/"
+            f"{document.submission_type}"
             )
+
+        status = "Ready"
+
+        self.tree.insert(
+            "",
+            "end",
+            values=(
+                file.name,
+                destination,
+                status
+            )
+        )
 
         if files:
             self.organize_button.configure(state="normal")

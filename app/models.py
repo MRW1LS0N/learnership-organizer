@@ -10,13 +10,10 @@ class DocumentInfo:
 
     path: Path
     filename: str
-
     student: str
-
     assessment_type: str
-
     assessment_number: int
-
-    submission_type: str
-
+    activity: str          # Informal / ISAT / PS01
+    marked: bool           # True or False (PSA present?)
+    attempt: int | None    # None or integer
     extension: str

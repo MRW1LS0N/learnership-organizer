@@ -1,3 +1,4 @@
+from app.organizer import organize_document
 from importlib.resources import files
 
 from app.parser import parse_filename
@@ -23,6 +24,8 @@ class LearnershipOrganizer(ctk.CTk):
         self.geometry("1100x700")
 
         self.evidence_folder = ""
+        self.documents = []
+        self.row_lookup = {}
 
         self.create_widgets()
 
@@ -85,6 +88,7 @@ class LearnershipOrganizer(ctk.CTk):
         self.organize_button = ctk.CTkButton(
             self,
             text="Organize Files",
+            command=self.organize_files,
             state="disabled"
         )
 
@@ -100,15 +104,14 @@ class LearnershipOrganizer(ctk.CTk):
         self.evidence_folder = folder
         self.folder_label.configure(text=folder)
 
-        # Clear previous results
-        for item in self.tree.get_children():
-            self.tree.delete(item)
 
         files = discover_files(folder)
 
         for file in files:
 
             document = parse_filename(file)
+            if document is not None:
+                self.documents.append(document)
 
             if document is None:
 
@@ -119,25 +122,74 @@ class LearnershipOrganizer(ctk.CTk):
             else:
 
                 destination = (
-                f"{document.assessment_type}/"
-                f"{document.assessment_type}{document.assessment_number:02d}/"
-                f"{document.submission_type}"
+                    f"{document.assessment_type}/"
+                    f"{document.assessment_type}{document.assessment_number:02d}"
                 )
 
+                if document.activity is not None:
+                    destination += f"/{document.activity}"
                 status = "Ready"
 
-            self.tree.insert(
-                "",
-                "end",
-                values=(
-                    file.name,
-                    destination,
-                    status
+                row_id = self.tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        file.name,
+                        destination,
+                        status
+                    )
                 )
-            )
+
+            if document is not None:
+                self.row_lookup[document.path] = row_id
         
 
         if files:
             self.organize_button.configure(state="normal")
         else:
             self.organize_button.configure(state="disabled")
+    def organize_files(self):
+        """
+        Organize all valid parsed documents and update their table rows.
+        """
+
+        moved = 0
+        skipped = 0
+
+        for document in self.documents:
+            success, message = organize_document(
+                document,
+                self.evidence_folder
+            )
+
+            row_id = self.row_lookup.get(document.path)
+
+            destination = (
+                f"{document.assessment_type}/"
+                f"{document.assessment_type}"
+                f"{document.assessment_number:02d}"
+            )
+
+            if document.activity is not None:
+                destination += f"/{document.activity}"
+
+            if success:
+                moved += 1
+                status = "Moved"
+            else:
+                skipped += 1
+                status = message
+
+            # Only update the table when the matching row exists.
+            if row_id is not None:
+                self.tree.item(
+                    row_id,
+                    values=(
+                        document.filename,
+                        destination,
+                        status
+                    )
+                )
+
+        print(f"Moved: {moved}")
+        print(f"Skipped: {skipped}")

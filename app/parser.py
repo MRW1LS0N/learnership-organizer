@@ -1,44 +1,167 @@
-import re
 from pathlib import Path
+import re
 
 from app.models import DocumentInfo
 
 
-FILENAME_PATTERN = re.compile(
-    r"^(.*?)\s+"
-    r"(KM|PM)"
-    r"(\d{2})\s+"
-    r"(Informal|ISAT|PSA|PS\d+)$",
-    re.IGNORECASE,
-)
-
-
-def parse_filename(file_path: Path):
+def parse_filename(file: Path) -> DocumentInfo | None:
     """
     Parse a learnership filename.
 
-    Example:
-        Jayden Wilson KM01 Informal.pdf
+    Supports:
 
-    Returns:
-        DocumentInfo | None
+    KM
+    ---
+    KM01 Informal
+    KM01 Formal
+    KM01 ISAT
+    KM01 Informal ATT 2
+
+    PM
+    ---
+    PM01 PS01
+    PM01 PS01 PSA
+    PM06
+
+    Extra words before/after are ignored.
     """
 
-    filename = file_path.stem
+    stem = (
+        file.stem
+        .replace("_", " ")
+        .replace("-", " ")
+    )
 
-    match = FILENAME_PATTERN.match(filename)
+    extension = file.suffix.lower()
 
-    if match is None:
+    tokens = stem.split()
+
+    # -----------------------------
+    # Find assessment token
+    # -----------------------------
+
+    assessment_match = None
+
+    for token in tokens:
+
+        token = token.upper()
+
+        if re.fullmatch(r"(KM|PM)\d{2}", token):
+            assessment_match = token
+            break
+
+    if assessment_match is None:
         return None
 
-    student, assessment, number, submission = match.groups()
+    assessment_type = assessment_match[:2]
+    assessment_number = int(assessment_match[2:])
+
+    # Validate assessment number
+
+    if assessment_number < 1 or assessment_number > 12:
+        return None
+
+    # -----------------------------
+    # Student name
+    # -----------------------------
+
+    student = ""
+
+    if assessment_match in tokens:
+
+        index = tokens.index(assessment_match)
+
+    else:
+
+        index = tokens.index(assessment_match.title())
+
+    if index > 0:
+        student = " ".join(tokens[:index])
+
+    # -----------------------------
+    # Defaults
+    # -----------------------------
+
+    activity = None
+    marked = False
+    attempt = None
+
+    upper_tokens = [t.upper() for t in tokens]
+
+    # -----------------------------
+    # KM Activities
+    # -----------------------------
+
+    if assessment_type == "KM":
+
+        if "INFORMAL" in upper_tokens:
+
+            activity = "Informal"
+
+        elif "ISAT" in upper_tokens:
+
+            activity = "ISAT"
+
+        elif "FORMAL" in upper_tokens:
+
+            activity = "ISAT"
+
+        else:
+
+            return None
+
+    # -----------------------------
+    # PM Activities
+    # -----------------------------
+
+    else:
+
+        for token in upper_tokens:
+
+            if re.fullmatch(r"PS\d{2}", token):
+
+                activity = token
+                break
+
+        # PM06 etc.
+        # No PS folder
+
+        if activity is None:
+
+            activity = None
+
+    # -----------------------------
+    # PSA
+    # -----------------------------
+
+    if "PSA" in upper_tokens:
+
+        marked = True
+
+    # -----------------------------
+    # ATT
+    # -----------------------------
+
+    for i in range(len(upper_tokens) - 1):
+
+        if upper_tokens[i] == "ATT":
+
+            try:
+
+                attempt = int(tokens[i + 1])
+
+            except ValueError:
+
+                pass
 
     return DocumentInfo(
-        path=file_path,
-        filename=file_path.name,
-        student=student.strip(),
-        assessment_type=assessment.upper(),
-        assessment_number=int(number),
-        submission_type=submission.upper(),
-        extension=file_path.suffix.lower(),
+        path=file,
+        filename=file.name,
+        student=student,
+        assessment_type=assessment_type,
+        assessment_number=assessment_number,
+        activity=activity,
+        marked=marked,
+        attempt=attempt,
+        extension=extension
     )
